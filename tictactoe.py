@@ -57,8 +57,8 @@ def train_model(training_data):
         return  # Sem dados para treinar
 
     model.train()
-    batch_size = 32  # Ajuste conforme necessário
-    num_epochs = 5   # Ajuste conforme necessário
+    batch_size = 32  # Fine tuning
+    num_epochs = 5  
 
     # Preparar dados para treinamento
     states = []
