@@ -15,7 +15,7 @@ WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 
 # Configurações da tela
-SIZE = WIDTH, HEIGHT = 300, 300
+SIZE = WIDTH, HEIGHT = 480, 480
 LINE_WIDTH = 5
 SCREEN = pygame.display.set_mode(SIZE)
 pygame.display.set_caption('Jogo da Velha com IA')
@@ -128,7 +128,7 @@ def board_to_tensor(board):
     return torch.tensor(board.flatten(), dtype=torch.float).unsqueeze(0)
 
 # Função para a IA escolher o melhor movimento
-def ai_move(board, epsilon=0.2):
+def ai_move(board, epsilon=0.1):
     # Obter movimentos válidos
     valid_moves = np.argwhere(board.flatten() == 0)
     if len(valid_moves) == 0:
@@ -177,18 +177,21 @@ while True:
                     col = int(x // (WIDTH / 3))
                     if board[row][col] == 0:
                         board[row][col] = player
-                        # Armazenar estado e ação
-                        state = board.copy()
-                        action = row * 3 + col
-                        data.append((state.flatten(), action, 0))  # Recompensa inicial 0
                         if check_win(board, player):
                             game_over = True
                             winner = 'Você venceu!'
-                            data[-1] = (state.flatten(), action, 1)  # Recompensa positiva
+                            if len(data) > 0:
+                                # A última entrada da IA foi antes dessa jogada humana
+                                # Recompensa do último movimento da IA para -1, aprender com a derrota
+                                last_state, last_action, _ = data[-1]
+                                data[-1] = (last_state, last_action, -1)
                         elif check_draw(board):
                             game_over = True
-                            winner = 'Empate!'
-                            data[-1] = (state.flatten(), action, 0.5)  # Recompensa neutra
+                            winner = 'Deu velha!'
+                            # Empate: última jogada da IA não é ruim nem boa
+                            if len(data) > 0:
+                                last_state, last_action, _ = data[-1]
+                                data[-1] = (last_state, last_action, 0.5)
                         else:
                             player = -1  # Alternar para a IA
             else:
@@ -197,23 +200,27 @@ while True:
                 if row_col:
                     row, col = row_col
                     board[row][col] = player
-                    # Armazenar estado e ação
+                    # Armazenar estado e ação APENAS para a IA
                     state = board.copy()
                     action = row * 3 + col
-                    data.append((state.flatten(), action, 0))  # Recompensa inicial 0
+                    data.append((state.flatten(), action, 0))  # IA move com recompensa inicial 0
                     if check_win(board, player):
                         game_over = True
                         winner = 'A IA venceu!'
-                        data[-1] = (state.flatten(), action, 1)  # Recompensa positiva
+                        # Vitória da IA
+                        last_state, last_action, _ = data[-1]
+                        data[-1] = (last_state, last_action, 1)
                     elif check_draw(board):
                         game_over = True
-                        winner = 'Empate!'
-                        data[-1] = (state.flatten(), action, 0.5)  # Recompensa neutra
+                        winner = 'Deu velha!'
+                        last_state, last_action, _ = data[-1]
+                        data[-1] = (last_state, last_action, 0.5)
                     else:
                         player = 1  # Alternar para o jogador humano
                 else:
+                    # Se a IA não encontrou movimento válido, é empate
                     game_over = True
-                    winner = 'Empate!'
+                    winner = 'Deu velha!'
 
     if game_over:
         # Exibir mensagem de fim de jogo
@@ -228,17 +235,14 @@ while True:
         torch.save(model.state_dict(), model_file)
 
         # Salvar os dados acumulados
-        # Carregar dados existentes
         if os.path.exists(data_file):
             with open(data_file, 'rb') as f:
                 existing_data = pickle.load(f)
         else:
             existing_data = []
 
-        # Adicionar os novos dados
         existing_data.extend(data)
 
-        # Salvar os dados atualizados
         with open(data_file, 'wb') as f:
             pickle.dump(existing_data, f)
 
